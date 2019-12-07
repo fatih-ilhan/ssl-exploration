@@ -1,3 +1,10 @@
+DATA_DISPATCHER = {1: "arrhythmia",
+                   2: "cardiotocography",
+                   3: "smartphone_activity",
+                   4: "gastrointestinal"}
+TEST_RATIO = 0.3
+
+
 class Config:
     """
     This object contains manually given parameters

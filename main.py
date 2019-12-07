@@ -25,7 +25,8 @@ if __name__ == '__main__':
                        "s3vm": config_obj.s3vm_params,
                        "gmm": config_obj.gmm_params}
 
-    x_train, y_train, x_test, y_test = prepare_data(args.data_id)
+    data_dict = prepare_data(args.data_id)
+    x_train, y_train, x_test, y_test = data_dict.values()
 
     if args.model_path is not None:
         model_params = params_dispatcher[args.model_name]
