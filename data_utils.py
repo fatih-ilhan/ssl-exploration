@@ -2,6 +2,8 @@ import os
 import random
 import pandas as pd
 import numpy as np
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
 import pickle
 
 import config
@@ -10,16 +12,16 @@ import config
 Includes utilization functions
 """
 
-
-def prepare_data(data_id):
+def prepare_data(data_id, overwrite_flag=False):
     """
     :param data_id: integer
+    :param overwrite_flag: bool
     :return: dict of x_train (n_train x d), y_train (n_train), x_test (n_test x d), y_test (n_test)
     """
     data_name = config.DATA_DISPATCHER[data_id]
     data_path = os.path.join("data", data_name + ".pkl")
 
-    if os.path.isfile(data_path):
+    if os.path.isfile(data_path) and not overwrite_flag:
         data_dict = pickle.load(open(data_path, "rb"))
         return data_dict
 
@@ -41,16 +43,24 @@ def prepare_data(data_id):
 def prepare_data_arrhythmia():
     data_path = os.path.join("data_raw", "arrhythmia", "arrhythmia.data")
     df = pd.read_csv(data_path, header=None)
-    df = df.dropna()
+    df = df.replace("?", np.nan)
+    df = df.astype(float)
 
     test_mask = np.random.rand(len(df)) < config.TEST_RATIO
     train_df = df[~test_mask]
     test_df = df[test_mask]
 
-    x_train = np.array(train_df.iloc[:, :-1])
-    y_train = np.array(train_df.iloc[:, -1]) - 1
-    x_test = np.array(test_df.iloc[:, :-1])
-    y_test = np.array(test_df.iloc[:, -1]) - 1
+    # Impute missing values
+    imp = IterativeImputer(max_iter=10, random_state=0)
+    imp.fit(train_df)
+
+    train_np = imp.transform(train_df)
+    test_np = imp.transform(test_df)
+
+    x_train = train_np[:, :-1]
+    y_train = (train_np[:, -1] - 1).astype(int)
+    x_test = test_np[:, :-1]
+    y_test = (test_np[:, -1] - 1).astype(int)
 
     return x_train, y_train, x_test, y_test
 
@@ -58,8 +68,8 @@ def prepare_data_arrhythmia():
 def prepare_data_cardiotocography():
     data_path = os.path.join("data_raw", "cardiotocography", "CTG.xls")
     df = pd.read_excel(data_path, header=None, sheet_name="Data")
-    x_df = df.iloc[2:-3, 10: 31]
-    y_df = df.iloc[2:-3:, -1]
+    x_df = df.iloc[2:-3, 10: 31].astype(float)
+    y_df = df.iloc[2:-3:, -1].astype(int)
     y_df[y_df == 1] = 0
     y_df[y_df == 2] = -1
     y_df[y_df == 3] = 1
@@ -70,9 +80,9 @@ def prepare_data_cardiotocography():
     test_mask[test_idx] = True
 
     x_train = np.array(x_df[~test_mask])
-    y_train = y_df[~test_mask]
+    y_train = np.array(y_df[~test_mask])
     x_test = np.array(x_df[test_mask])
-    y_test = y_df[test_mask]
+    y_test = np.array(y_df[test_mask])
 
     return x_train, y_train, x_test, y_test
 
@@ -104,9 +114,9 @@ def prepare_data_gastrointestinal():
     x = np.array(x_df).T
 
     y_data_path = os.path.join("data_raw", "gastrointestinal", "HumanEvaluation.xlsx")
-    y_df = pd.read_excel(y_data_path)
+    y_df = pd.read_excel(y_data_path, header=2)
 
-    y = np.array(y_df.iloc[2:78, 2:10])
+    y = np.array(y_df.iloc[:76, 1:9])
     y[y == "serrated"] = 0
     y[y == "adenoma"] = 1
     y[y == "hyperplasic"] = 2
@@ -134,14 +144,7 @@ def prepare_data_gastrointestinal():
     return x_train, y_train, x_test, y_test
 
 
-def evaluate(x, y, metric_list):
-    pass
-
-
-def remove_labels(x, y, mode, params):
-    pass
-
-
 if __name__ == '__main__':
-    data_id = 1
-    prepare_data(data_id)
+    data_id = 2
+    overwrite_flag = False
+    prepare_data(data_id, overwrite_flag)
