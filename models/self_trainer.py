@@ -28,6 +28,7 @@ class SelfTrainer(BaseEstimator, ClassifierMixin):
         for iter in range(self.max_iter):
 
             print(f"Iteration {iter+1}/{self.max_iter}")
+            print(f"Unlabeled data count: {is_unlabeled.sum()}")
 
             self.classifier.fit(x[~is_unlabeled], y[~is_unlabeled])
             preds = self.classifier.predict(x[is_unlabeled])
@@ -37,8 +38,6 @@ class SelfTrainer(BaseEstimator, ClassifierMixin):
             new_labeled_indices = np.where(is_unlabeled)[0][is_labeled_from_unlabeled]
             y[new_labeled_indices] = preds[is_labeled_from_unlabeled]
             is_unlabeled[new_labeled_indices] = 0
-
-            print(f"Unlabeled data count: {is_unlabeled.sum()}")
 
             if is_unlabeled.sum() == 0:
                 break

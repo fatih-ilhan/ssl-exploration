@@ -120,10 +120,11 @@ def prepare_data_gastro():
     y_data_path = os.path.join("data_raw", "gastrointestinal", "HumanEvaluation.xlsx")
     y_df = pd.read_excel(y_data_path, header=2)
 
-    y = np.array(y_df.iloc[:76, 1:9])
-    y[y == "serrated"] = 0
-    y[y == "adenoma"] = 1
-    y[y == "hyperplasic"] = 2
+    y = np.array(y_df.iloc[:76, 2:10])
+    y[y == "serrated"] = 0  # malignant
+    y[y == "adenoma"] = 1  # malignant
+    y[y == "hyperplasic"] = 2  # benign
+    y = y.astype(int)
 
     is_labeled_array = np.zeros(y.shape[0], dtype=bool)
     for i in range(y.shape[0]):
@@ -135,7 +136,7 @@ def prepare_data_gastro():
     y = np.repeat(y, 2)  # there are two realizations of each sample
 
     test_mask = np.zeros(y.shape[0], dtype=bool)
-    labeled_idx = np.argwhere(y > 0)[:, 0]
+    labeled_idx = np.argwhere(y >= 0)[:, 0]
     test_idx = random.sample(list(labeled_idx), int(y.shape[0] * config.TEST_RATIO))
     test_mask[test_idx] = True
 
