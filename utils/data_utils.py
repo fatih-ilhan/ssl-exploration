@@ -12,24 +12,28 @@ import config
 Includes utilization functions
 """
 
-def prepare_data(data_id, overwrite_flag=False):
+
+def prepare_data(dataset_name, overwrite_flag=False):
     """
-    :param data_id: integer
+    :param dataset_name: str
     :param overwrite_flag: bool
     :return: dict of x_train (n_train x d), y_train (n_train), x_test (n_test x d), y_test (n_test)
     """
-    data_name = config.DATA_DISPATCHER[data_id]
-    data_path = os.path.join("data", data_name + ".pkl")
+    data_path = os.path.join("data", dataset_name + ".pkl")
 
     if os.path.isfile(data_path) and not overwrite_flag:
         data_dict = pickle.load(open(data_path, "rb"))
         return data_dict
 
     helper_dispatcher = {"arrhythmia": prepare_data_arrhythmia,
-                         "cardiotocography": prepare_data_cardiotocography,
-                         "smartphone_activity": prepare_data_smartphone_activity,
-                         "gastrointestinal": prepare_data_gastrointestinal}
-    x_train, y_train, x_test, y_test = helper_dispatcher[data_name]()
+                         "cardio": prepare_data_cardio,
+                         "smartphone": prepare_data_smartphone,
+                         "gastro": prepare_data_gastro,
+                         "breast": prepare_data_breast,
+                         "credit": prepare_data_credit,
+                         "letter": prepare_data_letter,
+                         "mushroom": prepare_data_mushroom}
+    x_train, y_train, x_test, y_test = helper_dispatcher[dataset_name]()
     data_dict = {"x_train": x_train,
                  "y_train": y_train,
                  "x_test": x_test,
@@ -65,7 +69,7 @@ def prepare_data_arrhythmia():
     return x_train, y_train, x_test, y_test
 
 
-def prepare_data_cardiotocography():
+def prepare_data_cardio():
     data_path = os.path.join("data_raw", "cardiotocography", "CTG.xls")
     df = pd.read_excel(data_path, header=None, sheet_name="Data")
     x_df = df.iloc[2:-3, 10: 31].astype(float)
@@ -87,7 +91,7 @@ def prepare_data_cardiotocography():
     return x_train, y_train, x_test, y_test
 
 
-def prepare_data_smartphone_activity():
+def prepare_data_smartphone():
     x_train_data_path = os.path.join("data_raw", "smartphone_activity", "Train", "X_train.txt")
     x_train_df = pd.read_csv(x_train_data_path, header=None, sep=" ")
     x_train = np.array(x_train_df)
@@ -107,7 +111,7 @@ def prepare_data_smartphone_activity():
     return x_train, y_train, x_test, y_test
 
 
-def prepare_data_gastrointestinal():
+def prepare_data_gastro():
     x_data_path = os.path.join("data_raw", "gastrointestinal", "data.txt")
     x_df = pd.read_csv(x_data_path)
     x_df = x_df.iloc[2:]
@@ -144,7 +148,67 @@ def prepare_data_gastrointestinal():
     return x_train, y_train, x_test, y_test
 
 
+def prepare_data_breast():
+    data_path = os.path.join("data_raw", "breast_w", "breast_w.csv")
+    df = pd.read_csv(data_path)
+    df = df.iloc[:, 1:]
+    df = df.replace("?", np.nan)
+    df = df.replace("benign", 0)
+    df = df.replace("malignant", 1)
+    df = df.astype(float)
+
+    test_mask = np.random.rand(len(df)) < config.TEST_RATIO
+    train_df = df[~test_mask]
+    test_df = df[test_mask]
+
+    # Impute missing values
+    imp = IterativeImputer(max_iter=10, random_state=0)
+    imp.fit(train_df)
+
+    x_train = np.array(train_df)[:, :-1]
+    y_train = np.array(train_df)[:, -1].astype(int)
+
+    x_test = np.array(test_df)[:, :-1]
+    y_test = np.array(test_df)[:, -1].astype(int)
+
+    return x_train, y_train, x_test, y_test
+
+
+def prepare_data_credit():
+    raise NotImplementedError
+
+
+def prepare_data_letter():
+    data_path = os.path.join("data_raw", "letter_recognition", "letter_recognition.csv")
+    df = pd.read_csv(data_path)
+    df = df.drop(columns="id")
+    df = df.replace(list("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), list(range(26)))
+    df = df.astype(float)
+
+    test_mask = np.random.rand(len(df)) < config.TEST_RATIO
+    train_df = df[~test_mask]
+    test_df = df[test_mask]
+
+    # Impute missing values
+    imp = IterativeImputer(max_iter=10, random_state=0)
+    imp.fit(train_df)
+
+    x_train = np.array(train_df)[:, :-1]
+    y_train = np.array(train_df)[:, -1].astype(int)
+
+    x_test = np.array(test_df)[:, :-1]
+    y_test = np.array(test_df)[:, -1].astype(int)
+
+    return x_train, y_train, x_test, y_test
+
+
+def prepare_data_mushroom():
+    data_path = os.path.join("data_raw", "mushroom", "mushroom.csv")
+    df = pd.read_csv(data_path)
+    raise NotImplementedError
+
+
 if __name__ == '__main__':
-    data_id = 2
-    overwrite_flag = False
-    prepare_data(data_id, overwrite_flag)
+    dataset_name = "arrhythmia"
+    overwrite_flag = True
+    prepare_data(dataset_name, overwrite_flag)
