@@ -15,8 +15,8 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, nargs='+')  # "train", "test"
     parser.add_argument('--model_name', type=str)  # "self_trainer", "s3vm", "gmm"
     parser.add_argument('--model_path', type=str, default=None)  # path/to/model.pkl
-    parser.add_argument('--dataset_name', type=int)  # string
-    parser.add_argument('--num_repeat', type=int)  # repeat train + test
+    parser.add_argument('--dataset_name', type=str)  # string
+    parser.add_argument('--num_repeat', type=int, default=1)  # repeat train + test
 
     args = parser.parse_args()
 
