@@ -19,7 +19,7 @@ class GMM(BaseEstimator, ClassifierMixin):
         self.stopping_epsilon = params['stopping_epsilon']
 
         self.scaler = preprocessing.StandardScaler()
-        self.PCA = decomposition.PCA(n_components=self.PCA_dim)
+        self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
 
     def fit(self, x, y):
 
@@ -42,111 +42,51 @@ class GMM(BaseEstimator, ClassifierMixin):
         is_labeled = [(y[i] != -1) for i in range(num_samples)]  # -1 means no label is given
 
         # Initialize parameters
-        alpha = [0] * num_mixture_components
-        mu = [np.zeros((num_features, 1))] * num_mixture_components
-        sigma = [np.zeros((num_features, num_features))] * num_mixture_components
+        self.alpha = [0] * num_mixture_components
+        self.mu = [np.zeros((num_features, 1))] * num_mixture_components
+        self.sigma = [np.zeros((num_features, num_features))] * num_mixture_components
 
-        a_hat = np.zeros((num_mixture_components,))
         for i in range(num_samples):
             if is_labeled[i]:
-                a_hat[y[i]] += 1
-        a_hat = a_hat / np.sum(a_hat)
+                self.alpha[y[i]] += 1
+        self.alpha = self.alpha / np.sum(self.alpha)
 
         for j in range(num_mixture_components):
-            alpha[j] = a_hat[j]
+            self.mu[j] = np.mean(x_std[y==j], axis=0).reshape(num_features, 1)
+            self.sigma[j] = np.cov(x_std[y==j].T)
 
-        # seed(27)
-        counts = np.zeros((num_mixture_components, 1))
-        for j in range(num_mixture_components):
+        self.sigmai = [np.linalg.inv(self.sigma[j]) for j in range(num_mixture_components)]
+
+        y_hat = y
+
+        prevlikelihood = 0
+
+        for step in range(self.max_steps):
             for i in range(num_samples):
-                if y[i] == j:
-                    mu[j] += x_std[i, :].T.reshape((-1, 1))
-                    counts[j] += 1
-        for j in range(num_mixture_components):
-            mu[j] = mu[j] / counts[j]
+                if not is_labeled[i]:
+                    probs = [self.alpha[j] * self.compute_fnorm(x_std[i,:].reshape((-1,1)), self.mu[j], self.sigma[j], self.sigmai[j]) for j in range(num_mixture_components)]
+                    y_hat[i] = np.argmax(probs)
 
-        counts = np.zeros((num_mixture_components, 1))
-        for j in range(num_mixture_components):
-            for i in range(num_samples):
-                x_ = x_std[i, :].T.reshape(-1, 1)
-                if y[i] == j:
-                    sigma[j] = sigma[j] + np.matmul((x_ - mu[j]).reshape((num_features, 1)), (x_ - mu[j]).T.reshape((1, num_features)))
-                    counts[j] += 1
-        for j in range(num_mixture_components):
-            sigma[j] = 1 * sigma[j] / counts[j]
-
-        prev_likelihood = 0
-
-        for steps in range(self.max_steps):
-            # Labeling of unlabeled data
+            self.alpha = [0] * num_mixture_components
             for i in range(num_samples):
                 if is_labeled[i]:
-                    y_hat[i] = y[i]
-                else:
-                    x_ = x_std[i].T.reshape((num_features, 1))
-                    y_hat[i] = self.compute_maximum_likelihood(x_, alpha, mu, sigma)
-
-            # Standard EM
-            """ ahat = np.zeros((M,))
-            for i in range(M):
-                x_ = x_std[i,:].T.reshape((D,1))
-                pj = self.getpj(x_, alpha, mu, sigma)
-                ahat = ahat + pj
-            ahat = ahat / N
-            for j in range(M):
-                alpha[j] = ahat[j]
-            """
-
-            a_hat = np.zeros((num_mixture_components,))
-            for i in range(num_samples):
-                if is_labeled[i]:
-                    ind = int(y_hat[i])
-                    a_hat[ind] += 1
-            a_hat = a_hat / np.sum(a_hat)
-            for j in range(num_mixture_components):
-                alpha[j] = a_hat[j]
-
-            mu_hat = [np.zeros((num_features, 1))] * num_mixture_components
-            sigma_hat = [np.zeros((num_features, num_features))] * num_mixture_components
-
-            denom = np.zeros((num_mixture_components,))
-            for i in range(num_samples):
-                x_ = x_std[i, :].T.reshape((num_features, 1))
-                pj = self.compute_pj(x_, alpha, mu, sigma)
-                for j in range(num_mixture_components):
-                    mu_hat[j] += pj[j] * x_
-                    denom[j] += pj[j]
-            for j in range(num_mixture_components):
-                mu_hat[j] = mu_hat[j] / denom[j]
-
-            denom = np.zeros((num_mixture_components,))
-            for i in range(num_samples):
-                x_ = x_std[i, :].T.reshape((num_features, 1))
-                pj = self.compute_pj(x_, alpha, mu, sigma)
-                for j in range(num_mixture_components):
-                    muj = mu_hat[j]
-                    d_ = (x_ - muj).reshape((num_features, 1))
-                    sigma_hat[j] += pj[j] * np.matmul(d_, d_.T.reshape((1, num_features)))
-                    denom[j] += pj[j]
-            for j in range(num_mixture_components):
-                sigma_hat[j] = sigma_hat[j] / denom[j]
+                    self.alpha[y[i]] += 1
+            self.alpha = self.alpha / np.sum(self.alpha)
 
             for j in range(num_mixture_components):
-                mu[j] = mu_hat[j]
-                sigma[j] = sigma_hat[j]
+                self.mu[j] = np.mean(x_std[y==j], axis=0).reshape(num_features,1)
+                self.sigma[j] = np.cov(x_std[y==j].T)
 
-            likelihood = self.compute_log_likelihood(x_std, alpha, mu, sigma)
+            self.sigmai = [np.linalg.inv(self.sigma[j]) for j in range(num_mixture_components)]
 
-            print('Step: ' + str(steps) + '     log-likelihood: ' + str(likelihood))
+            likelihood = self.compute_log_likelihood(x_std, self.alpha, self.mu, self.sigma, self.sigmai)
+            print('Step: ' + str(step) + '      likelihood: ' + str(likelihood))
 
-            if abs(prev_likelihood - likelihood) < self.stopping_epsilon:
+            if abs(likelihood - prevlikelihood) < self.stopping_epsilon:
                 break
 
-            prev_likelihood = likelihood
+            prevlikelihood = likelihood
 
-        self.alpha = alpha
-        self.mu = mu
-        self.sigma = sigma
 
     def predict(self, x):
 
@@ -159,13 +99,13 @@ class GMM(BaseEstimator, ClassifierMixin):
 
         for i in range(N):
             x_ = x_std[i, :].reshape(-1, 1)
-            y[i] = int(self.compute_maximum_likelihood(x_, self.alpha, self.mu, self.sigma))
+            y[i] = int(self.compute_maximum_likelihood(x_, self.alpha, self.mu, self.sigma, self.sigmai))
 
         return y
 
     # Auxiliary Functions
 
-    def compute_log_likelihood(self, x, alpha, mu, sigma):
+    def compute_log_likelihood(self, x, alpha, mu, sigma, sigmai):
         num_mixture_components = len(alpha)
         num_samples = x.shape[0]
         num_features = x.shape[1]
@@ -176,12 +116,12 @@ class GMM(BaseEstimator, ClassifierMixin):
             x_ = x[i, :].reshape((num_features, 1))
             summand = 0
             for j in range(num_mixture_components):
-                summand += alpha[j] * self.compute_fnorm(x_, mu[j], sigma[j])
+                summand += alpha[j] * self.compute_fnorm(x_, mu[j], sigma[j], sigmai[j])
             lik += math.log(summand+1e-9)  # todo - summand is sometimes zero
         
         return lik
 
-    def compute_fnorm(self, x, mu, sigma):
+    def compute_fnorm(self, x, mu, sigma, sigmai):
         
         num_features = self.PCA_dim
 
@@ -190,7 +130,7 @@ class GMM(BaseEstimator, ClassifierMixin):
 
         dT = (x - mu).T.reshape((1, num_features))
         dN = (x - mu).reshape((num_features, 1))
-        sigmai = np.linalg.inv(sigma)
+        #sigmai = np.linalg.inv(sigma)
         dist = np.matmul(dT, np.matmul(sigmai, dN))[0]
         det = np.linalg.det(sigma)
         if abs(det) == 0:
@@ -206,12 +146,12 @@ class GMM(BaseEstimator, ClassifierMixin):
 
         return val
 
-    def compute_maximum_likelihood(self, x, alpha, mu, sigma):
+    def compute_maximum_likelihood(self, x, alpha, mu, sigma, sigmai):
         M = len(alpha)
         likelihoods = np.zeros((M,))
 
         for j in range(M):
-            likelihoods[j] = alpha[j] * self.compute_fnorm(x, mu[j], sigma[j])
+            likelihoods[j] = alpha[j] * self.compute_fnorm(x, mu[j], sigma[j], sigmai[j])
 
         return np.argmax(likelihoods)
 
