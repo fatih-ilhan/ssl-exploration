@@ -6,8 +6,8 @@ from config import Config
 from models.gmm import GMM
 from models.self_trainer import SelfTrainer
 from models.s3vm import S3VM
-from data_utils import prepare_data
-from evaluate_utils import evaluate, merge_results
+from utils.data_utils import prepare_data
+from utils.evaluate_utils import evaluate, merge_results
 
 
 if __name__ == '__main__':
@@ -15,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, nargs='+')  # "train", "test"
     parser.add_argument('--model_name', type=str)  # "self_trainer", "s3vm", "gmm"
     parser.add_argument('--model_path', type=str, default=None)  # path/to/model.pkl
-    parser.add_argument('--data_id', type=int)  # 1, 2 ...
+    parser.add_argument('--dataset_name', type=int)  # string
     parser.add_argument('--num_repeat', type=int)  # repeat train + test
 
     args = parser.parse_args()
@@ -28,7 +28,7 @@ if __name__ == '__main__':
                          "s3vm": config_obj.s3vm_params,
                          "gmm": config_obj.gmm_params}
 
-    data_dict = prepare_data(args.data_id)
+    data_dict = prepare_data(args.dataset_name)
     x_train, y_train, x_test, y_test = data_dict.values()
 
     if args.model_path is None:
