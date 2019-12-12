@@ -3,4 +3,5 @@
 .gitignore
 __pycache__/
 data/*
-results/*
+output/results/*
+output/models/*
