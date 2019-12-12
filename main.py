@@ -42,6 +42,7 @@ if __name__ == '__main__':
                 model = pickle.load(f)
 
         train_results_list = []
+        val_results_list = []
         test_results_list = []
 
         data_dict = prepare_data(dataset_name)
@@ -52,29 +53,37 @@ if __name__ == '__main__':
             print(f"Dataset: {dataset_name}, Repeat index: {rep+1}")
             if "train" in args.mode:
                 model.fit(x_train, y_train)
-                train_preds = model.predict(x_train)
-                train_results = evaluate(train_preds, y_train, config_obj.experiment_params["evaluation_metric"])
+                train_preds = model.predict(x_train[y_train != -1])
+                train_results = evaluate(train_preds, y_train[y_train != -1], config_obj.experiment_params["evaluation_metric"])
                 train_results_list.append(train_results)
+                val_results_list.append({"balanced_accuracy": model.best_val_score})
 
             if "test" in args.mode:
-                test_preds = model.predict(x_test)
-                test_results = evaluate(test_preds, y_test, config_obj.experiment_params["evaluation_metric"])
+                test_preds = model.predict(x_test[y_test != -1])
+                test_results = evaluate(test_preds, y_test[y_test != -1], config_obj.experiment_params["evaluation_metric"])
                 test_results_list.append(test_results)
 
         average_train_results_mean = merge_results(train_results_list, "mean")
         average_train_results_std = merge_results(train_results_list, "std")
+        
+        average_val_results_mean = merge_results(val_results_list, "mean")
+        average_val_results_std = merge_results(val_results_list, "std")
 
         average_test_results_mean = merge_results(test_results_list, "mean")
         average_test_results_std = merge_results(test_results_list, "std")
 
         print("Train results (mean):", json.dumps(average_train_results_mean, indent=4))
         print("Train results (std):", json.dumps(average_train_results_std, indent=4))
+        print("Validation results (mean):", json.dumps(average_val_results_mean, indent=4))
+        print("Validation results (std):", json.dumps(average_val_results_std, indent=4))
         print("Test results (mean):", json.dumps(average_test_results_mean, indent=4))
         print("Test results (std):", json.dumps(average_test_results_std, indent=4))
 
         all_results = {}
         all_results["average_train_results_mean"] = average_train_results_mean
         all_results["average_train_results_std"] = average_train_results_std
+        all_results["average_val_results_mean"] = average_val_results_mean
+        all_results["average_val_results_std"] = average_val_results_std
         all_results["average_test_results_mean"] = average_test_results_mean
         all_results["average_test_results_std"] = average_test_results_std
 

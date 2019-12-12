@@ -9,8 +9,8 @@ from utils.data_utils import prepare_data
 import config
 
 
-def scatter_pca(data_id):
-    data_dict = prepare_data(data_id)
+def scatter_pca(dataset_name):
+    data_dict = prepare_data(dataset_name)
     x_train, y_train, _, _ = data_dict.values()
 
     num_label = len(np.unique(y_train))
@@ -29,12 +29,12 @@ def scatter_pca(data_id):
         legend="full",
         alpha=0.7
     )
-    plt.title(f"PCA Visualization of Dataset: {config.DATA_DISPATCHER[data_id]}")
-    plt.show()
+    plt.title(f"PCA Visualization of Dataset: {dataset_name}")
+    plt.savefig("pca_" + dataset_name)
 
 
-def scatter_tsne(data_id):
-    data_dict = prepare_data(data_id)
+def scatter_tsne(dataset_name):
+    data_dict = prepare_data(dataset_name)
     x_train, y_train, _, _ = data_dict.values()
 
     num_label = len(np.unique(y_train))
@@ -53,15 +53,15 @@ def scatter_tsne(data_id):
         legend="full",
         alpha=0.7
     )
-    plt.title(f"TSNE Visualization of Dataset: {config.DATA_DISPATCHER[data_id]}")
+    plt.title(f"TSNE Visualization of Dataset: {dataset_name}")
     plt.show()
 
 
 if __name__ == '__main__':
-    data_id = 2
+    dataset_name = "smartphone"
     mode = "pca"
 
     if mode == "pca":
-        scatter_pca(data_id)
+        scatter_pca(dataset_name)
     else:
-        scatter_tsne(data_id)
+        scatter_tsne(dataset_name)

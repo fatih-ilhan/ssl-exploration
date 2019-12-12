@@ -1,15 +1,32 @@
+import os
+import sys
+import warnings
 import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.neural_network import MLPClassifier
-from sklearn.svm import SVC
-from sklearn.model_selection import GridSearchCV
+from sklearn.svm import LinearSVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn import preprocessing
 from sklearn import decomposition
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.semi_supervised import LabelPropagation, LabelSpreading
 
+import config
 
+if not sys.warnoptions:
+    warnings.simplefilter("ignore")
+    os.environ["PYTHONWARNINGS"] = "ignore"
+
+
+# todo - add 'don't choose the best val option' for iteration loop
 class SelfTrainer(BaseEstimator, ClassifierMixin):
-    model_dispatcher = {"mlp": MLPClassifier, "svm": SVC}
+    model_dispatcher = {"mlp": MLPClassifier, "svm": LinearSVC, "tree": DecisionTreeClassifier,
+                        "forest": RandomForestClassifier}
+
+    score_func_dispatcher = {"mlp": "predict_proba", "svm": "decision_function", "tree": "predict_proba",
+                             "forest": "predict_proba"}
 
     def __init__(self, params):
         self.model_name = params["model_name"]
@@ -21,10 +38,11 @@ class SelfTrainer(BaseEstimator, ClassifierMixin):
         self.PCA_dim = params['PCA_dim']
         self.standardize_flag = params['standardize_flag']
 
-        self.classifier = GridSearchCV(self.model_dispatcher[self.model_name](), self.model_params,
-                                       scoring=self.metric_key, cv=self.num_splits)
         self.scaler = preprocessing.StandardScaler()
         self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
+
+        self.estimator = None
+        self.best_val_score = 0
 
     def fit(self, x_input, y_input):
 
@@ -46,37 +64,43 @@ class SelfTrainer(BaseEstimator, ClassifierMixin):
         is_unlabeled = y == -1
 
         best_val_score = 0
-        best_model = self.classifier
-        for iter in range(self.max_iter):
+        best_estimator = None
+        for i in range(self.max_iter):
             print("--------------------")
-            print(f"Iteration {iter+1}/{self.max_iter}")
+            print(f"Iteration {i+1}/{self.max_iter}")
             print(f"Unlabeled data count: {is_unlabeled.sum()}")
 
-            self.classifier.fit(x[~is_unlabeled], y[~is_unlabeled])
+            cv = GridSearchCV(self.model_dispatcher[self.model_name](), self.model_params,
+                              scoring=self.metric_key,
+                              cv=self.num_splits,
+                              n_jobs=config.N_JOBS)
+            cv.fit(x[~is_unlabeled], y[~is_unlabeled])
 
-            if is_unlabeled.sum() == 0:
-                break
+            if is_unlabeled.sum() > 0:
+                preds = cv.predict(x[is_unlabeled])
+                preds_scores = getattr(cv, self.score_func_dispatcher[self.model_name])(x[is_unlabeled])
 
-            preds = self.classifier.predict(x[is_unlabeled])
-            preds_scores = self.classifier.predict_proba(x[is_unlabeled])
+                if preds_scores.ndim == 1:
+                    preds_scores = preds_scores[:, None]
 
-            is_labeled_from_unlabeled = np.max(preds_scores, axis=1) >= self.confidence_threshold
-            new_labeled_indices = np.where(is_unlabeled)[0][is_labeled_from_unlabeled]
-            y[new_labeled_indices] = preds[is_labeled_from_unlabeled]
-            is_unlabeled[new_labeled_indices] = 0
+                is_labeled_from_unlabeled = np.max(preds_scores, axis=1) >= self.confidence_threshold
+                new_labeled_indices = np.where(is_unlabeled)[0][is_labeled_from_unlabeled]
+                y[new_labeled_indices] = preds[is_labeled_from_unlabeled]
+                is_unlabeled[new_labeled_indices] = 0
 
-            if is_unlabeled.sum() == 0:
-                break
-
-            val_score = self.classifier.cv_results_["mean_test_score"]
+            val_score = cv.cv_results_["mean_test_score"].max()
             if val_score > best_val_score:
                 best_val_score = val_score
-                best_model = self.classifier
+                best_estimator = cv.best_estimator_
 
             print(f"Validation score: {val_score}")
             print(f"Best validation score: {best_val_score}")
 
-        self.classifier = best_model
+            if is_unlabeled.sum() == 0:
+                break
+
+        self.estimator = best_estimator
+        self.best_val_score = best_val_score
 
     def predict(self, x_input):
 
@@ -88,5 +112,5 @@ class SelfTrainer(BaseEstimator, ClassifierMixin):
         if self.PCA_dim:
             x = self.PCA.transform(x)
 
-        return self.classifier.predict(x)
+        return self.estimator.predict(x)
 
