@@ -7,7 +7,6 @@ from sklearn import decomposition
 import math
 
 
-# todo - speed up
 class GMM(BaseEstimator, ClassifierMixin):
 
     def __init__(self, params):
@@ -17,6 +16,7 @@ class GMM(BaseEstimator, ClassifierMixin):
         self.max_steps = params['max_steps']
         self.PCA_dim = params['PCA_dim']
         self.stopping_epsilon = params['stopping_epsilon']
+        self.standardize_flag = params['standardize_flag']
 
         self.scaler = preprocessing.StandardScaler()
         self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
@@ -29,14 +29,18 @@ class GMM(BaseEstimator, ClassifierMixin):
         num_features = self.PCA_dim
 
         # standardize input
-        self.scaler.fit(x)
-        x_std = self.scaler.transform(x)
+        if self.standardize_flag:
+            self.scaler.fit(x)
+            x_std = self.scaler.transform(x)
+        else:
+            x_std = x.copy()
 
         # apply PCA
-        self.PCA.fit(x_std)
-        x_std = self.PCA.transform(x_std)
+        if self.PCA_dim > 0:
+            self.PCA.fit(x_std)
+            x_std = self.PCA.transform(x_std)
 
-        print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
+            print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
 
         y_hat = np.zeros(y.shape)
         is_labeled = [(y[i] != -1) for i in range(num_samples)]  # -1 means no label is given
@@ -87,11 +91,15 @@ class GMM(BaseEstimator, ClassifierMixin):
 
             prevlikelihood = likelihood
 
-
     def predict(self, x):
 
-        x_std = self.scaler.transform(x)
-        x_std = self.PCA.transform(x_std)
+        if self.standardize_flag:
+            x_std = self.scaler.transform(x)
+        else:
+            x_std = x.copy()
+
+        if self.PCA_dim > 0:
+            x_std = self.PCA.transform(x_std)
 
         N = x_std.shape[0]
 

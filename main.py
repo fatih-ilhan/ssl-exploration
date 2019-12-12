@@ -1,6 +1,7 @@
 import argparse
 import pickle
 import json
+import os
 
 from config import Config
 from models.gmm import GMM
@@ -14,9 +15,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', type=str, nargs='+')  # "train", "test"
     parser.add_argument('--model_name', type=str)  # "self_trainer", "s3vm", "gmm"
-    parser.add_argument('--model_path', type=str, default=None)  # path/to/model.pkl
-    parser.add_argument('--dataset_name', type=str)  # string
+    parser.add_argument('--dataset_list', type=str, nargs='+')  # string list
     parser.add_argument('--num_repeat', type=int, default=1)  # repeat train + test
+    parser.add_argument('--save', type=bool, default=1)  # save results flag
+    parser.add_argument('--load', type=bool, default=0)  # load previous pkl
 
     args = parser.parse_args()
 
@@ -28,38 +30,56 @@ if __name__ == '__main__':
                          "s3vm": config_obj.s3vm_params,
                          "gmm": config_obj.gmm_params}
 
-    data_dict = prepare_data(args.dataset_name)
-    x_train, y_train, x_test, y_test = data_dict.values()
+    for dataset_name in args.dataset_list:
 
-    if args.model_path is None:
-        model_params = params_dispatcher[args.model_name]
-        model = model_dispatcher[args.model_name](model_params)
-    else:
-        with open(args.model_path, "rb") as f:
-            model = pickle.load(f)
+        model_path = "output", "models", args.model_name + "_" + dataset_name + ".pkl"
 
-    train_results_list = []
-    test_results_list = []
+        if ~args.load:
+            model_params = params_dispatcher[args.model_name]
+            model = model_dispatcher[args.model_name](model_params)
+        else:
+            with open(args.model_path, "rb") as f:
+                model = pickle.load(f)
 
-    for rep in range(args.num_repeat):
-        if "train" in args.mode:
-            model.fit(x_train, y_train)
-            train_preds = model.predict(x_train)
-            train_results = evaluate(train_preds, y_train, config_obj.experiment_params["evaluation_metric"])
-            train_results_list.append(train_results)
+        train_results_list = []
+        test_results_list = []
 
-        if "test" in args.mode:
-            test_preds = model.predict(x_test)
-            test_results = evaluate(test_preds, y_test, config_obj.experiment_params["evaluation_metric"])
-            test_results_list.append(test_results)
+        data_dict = prepare_data(dataset_name)
+        x_train, y_train, x_test, y_test = data_dict.values()
 
-    average_train_results_mean = merge_results(train_results_list, "mean")
-    average_train_results_std = merge_results(train_results_list, "std")
+        for rep in range(args.num_repeat):
+            print("********************")
+            print(f"Dataset: {dataset_name}, Repeat index: {rep+1}")
+            if "train" in args.mode:
+                model.fit(x_train, y_train)
+                train_preds = model.predict(x_train)
+                train_results = evaluate(train_preds, y_train, config_obj.experiment_params["evaluation_metric"])
+                train_results_list.append(train_results)
 
-    average_test_results_mean = merge_results(test_results_list, "mean")
-    average_test_results_std = merge_results(test_results_list, "std")
+            if "test" in args.mode:
+                test_preds = model.predict(x_test)
+                test_results = evaluate(test_preds, y_test, config_obj.experiment_params["evaluation_metric"])
+                test_results_list.append(test_results)
 
-    print("Train results (mean):", json.dumps(average_train_results_mean, indent=4))
-    print("Train results (std):", json.dumps(average_train_results_std, indent=4))
-    print("Test results (mean):", json.dumps(average_test_results_mean, indent=4))
-    print("Test results (std):", json.dumps(average_test_results_std, indent=4))
+        average_train_results_mean = merge_results(train_results_list, "mean")
+        average_train_results_std = merge_results(train_results_list, "std")
+
+        average_test_results_mean = merge_results(test_results_list, "mean")
+        average_test_results_std = merge_results(test_results_list, "std")
+
+        print("Train results (mean):", json.dumps(average_train_results_mean, indent=4))
+        print("Train results (std):", json.dumps(average_train_results_std, indent=4))
+        print("Test results (mean):", json.dumps(average_test_results_mean, indent=4))
+        print("Test results (std):", json.dumps(average_test_results_std, indent=4))
+
+        all_results = {}
+        all_results["average_train_results_mean"] = average_train_results_mean
+        all_results["average_train_results_std"] = average_train_results_std
+        all_results["average_test_results_mean"] = average_test_results_mean
+        all_results["average_test_results_std"] = average_test_results_std
+
+        if args.save:
+            pickle.dump(all_results, open(os.path.join("output", "results",
+                                                       args.model_name + "_" + dataset_name + ".pkl"), "wb"))
+            pickle.dump(model, open(os.path.join("output", "models",
+                                                 args.model_name + "_" + dataset_name + ".pkl"), "wb"))

@@ -3,5 +3,4 @@
 .gitignore
 __pycache__/
 data/*
-data_raw/*
 results/*
