@@ -241,7 +241,7 @@ def prepare_data_ssl_book(sub_data_name):
 
     if sub_data_name != "sec_str":
         x = data["X"]
-        y = data["y"][:, 0]
+        y = data["y"][:, 0].astype(int)
         y[y == -1] = 0
     else:
         x = data["T"]

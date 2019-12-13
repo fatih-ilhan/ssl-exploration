@@ -21,6 +21,8 @@ class GMM(BaseEstimator, ClassifierMixin):
         self.scaler = preprocessing.StandardScaler()
         self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
 
+        self.best_val_score = 0
+
     def fit(self, x, y):
 
         # Assuming there are as many mixture components as labels

@@ -7,11 +7,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.model_selection import GridSearchCV
 from sklearn import preprocessing
 from sklearn import decomposition
-from sklearn.exceptions import ConvergenceWarning
-from sklearn.semi_supervised import LabelPropagation, LabelSpreading
 
 import config
 
