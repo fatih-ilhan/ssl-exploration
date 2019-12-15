@@ -3,6 +3,8 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 import numpy as np
 from sklearn import preprocessing
 from sklearn import decomposition
+from sklearn import metrics
+from sklearn.utils import shuffle
 
 import math
 
@@ -21,6 +23,8 @@ class GMM(BaseEstimator, ClassifierMixin):
         self.scaler = preprocessing.StandardScaler()
         self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
 
+        self.folds = 4
+
         self.best_val_score = 0
 
     def fit(self, x, y):
@@ -29,6 +33,8 @@ class GMM(BaseEstimator, ClassifierMixin):
         num_mixture_components = np.max(y) + 1
         num_samples = x.shape[0]
         num_features = self.PCA_dim
+
+        x,y = shuffle(x, y)
 
         # standardize input
         if self.standardize_flag:
@@ -47,25 +53,24 @@ class GMM(BaseEstimator, ClassifierMixin):
         y_hat = np.zeros(y.shape)
         is_labeled = [(y[i] != -1) for i in range(num_samples)]  # -1 means no label is given
 
-        # Initialize parameters
-        self.alpha = [0] * num_mixture_components
-        self.mu = [np.zeros((num_features, 1))] * num_mixture_components
-        self.sigma = [np.zeros((num_features, num_features))] * num_mixture_components
-
-        for i in range(num_samples):
-            if is_labeled[i]:
-                self.alpha[y[i]] += 1
-        self.alpha = self.alpha / np.sum(self.alpha)
-
-        for j in range(num_mixture_components):
-            self.mu[j] = np.mean(x_std[y==j], axis=0).reshape(num_features, 1)
-            self.sigma[j] = np.cov(x_std[y==j].T)
-
-        self.sigmai = [np.linalg.inv(self.sigma[j]) for j in range(num_mixture_components)]
+        # Initial Fit
+        self.alpha, self.mu, self.sigma, self.sigmai = self.fitGaussian(x_std, y, num_features, num_mixture_components)
 
         y_hat = y
+        for i in range(num_samples):
+            if not is_labeled[i]:
+                probs = [self.alpha[j] * self.compute_fnorm(x_std[i,:].reshape((-1,1)), self.mu[j], self.sigma[j], self.sigmai[j]) for j in range(num_mixture_components)]
+                y_hat[i] = np.argmax(probs)
+
+        val_scores, validation_accuracies = self.validate(x_std, y_hat, num_features, num_mixture_components)
+        self.best_val_score = np.sum(validation_accuracies) / self.folds
 
         prevlikelihood = 0
+        #prev_vals = [-1e20 for j in range(self.folds)]
+        prev_vals = val_scores
+        prev_accuracies = validation_accuracies
+
+        #return
 
         for step in range(self.max_steps):
             for i in range(num_samples):
@@ -73,17 +78,25 @@ class GMM(BaseEstimator, ClassifierMixin):
                     probs = [self.alpha[j] * self.compute_fnorm(x_std[i,:].reshape((-1,1)), self.mu[j], self.sigma[j], self.sigmai[j]) for j in range(num_mixture_components)]
                     y_hat[i] = np.argmax(probs)
 
-            self.alpha = [0] * num_mixture_components
-            for i in range(num_samples):
-                if is_labeled[i]:
-                    self.alpha[y[i]] += 1
-            self.alpha = self.alpha / np.sum(self.alpha)
+            val_scores, validation_accuracies = self.validate(x_std, y_hat, num_features, num_mixture_components)
 
-            for j in range(num_mixture_components):
-                self.mu[j] = np.mean(x_std[y==j], axis=0).reshape(num_features,1)
-                self.sigma[j] = np.cov(x_std[y==j].T)
+            #print(validation_accuracies)
 
-            self.sigmai = [np.linalg.inv(self.sigma[j]) for j in range(num_mixture_components)]
+            end_training = False
+            for j in range(self.folds):
+                end_training = end_training or (prev_vals[j] > val_scores[j])
+            #end_training = (np.sum(prev_accuracies) > np.sum(validation_accuracies))
+
+            prev_vals = val_scores
+            prev_accuracies = validation_accuracies
+
+            if end_training:
+                #self.alpha, self.mu, self.sigma, self.sigmai = self.fitGaussian(x_std, y_hat, num_features, num_mixture_components)
+                break
+
+            self.best_val_score = np.sum(validation_accuracies) / self.folds
+                
+            self.alpha, self.mu, self.sigma, self.sigmai = self.fitGaussian(x_std, y_hat, num_features, num_mixture_components)
 
             likelihood = self.compute_log_likelihood(x_std, self.alpha, self.mu, self.sigma, self.sigmai)
             print('Step: ' + str(step) + '      likelihood: ' + str(likelihood))
@@ -114,6 +127,60 @@ class GMM(BaseEstimator, ClassifierMixin):
         return y
 
     # Auxiliary Functions
+
+    def fitGaussian(self, x, y, num_features, num_mixture_components):
+        alpha = [0] * num_mixture_components
+        mu = [np.zeros((num_features, 1))] * num_mixture_components
+        sigma = [np.zeros((num_features, num_features))] * num_mixture_components
+        for i in range(x.shape[0]):
+            #if is_labeled[i]:
+            #    self.alpha[y[i]] += 1
+            alpha[y[i]] += 1
+        alpha = alpha / np.sum(alpha)
+
+        for j in range(num_mixture_components):
+            mu[j] = np.mean(x[y==j], axis=0).reshape(num_features,1)
+            sigma[j] = np.cov(x[y==j].T)
+
+        sigmai = [np.linalg.inv(sigma[j]) for j in range(num_mixture_components)]
+
+        return alpha, mu, sigma, sigmai
+
+    def validate(self, x, y, num_features, num_mixture_components):
+        fold_size = math.floor(x.shape[0] / self.folds)
+        masks = np.zeros((self.folds, x.shape[0]), dtype=bool)
+        for j in range(self.folds):
+            masks[j, j * fold_size : (j+1) * fold_size - 1] = True
+
+        val_scores = [0 for j in range(self.folds)]
+
+        x_train = [x[~masks[j]] for j in range(self.folds)]
+        y_train = [y[~masks[j]] for j in range(self.folds)]
+
+        x_val = [x[masks[j]] for j in range(self.folds)]
+        y_val = [y[masks[j]] for j in range(self.folds)]
+
+        validation_accuracies = [0 for j in range(self.folds)]
+        validation_hits = [0 for j in range(self.folds)]
+        validation_counts = [0 for j in range(self.folds)]
+
+        for j in range(self.folds):
+            alpha, mu, sigma, sigmai = self.fitGaussian(x_train[j], y_train[j], num_features, num_mixture_components)
+            lik = self.compute_log_likelihood(x_val[j], alpha, mu, sigma, sigmai)
+            val_scores[j] = lik
+
+            for i in range(x_val[j].shape[0]):
+                if y_val[j][i] != -1:
+                    probs = [alpha[m] * self.compute_fnorm(x_val[j][i,:].reshape((-1,1)), mu[m], sigma[m], sigmai[m]) for m in range(num_mixture_components)]
+                    prediction = np.argmax(probs)
+                    if prediction == y_val[j][i]:
+                        validation_hits[j] += 1
+                    validation_counts[j] += 1
+
+        for j in range(self.folds):
+            validation_accuracies[j] = validation_hits[j] / validation_counts[j]
+
+        return val_scores, validation_accuracies
 
     def compute_log_likelihood(self, x, alpha, mu, sigma, sigmai):
         num_mixture_components = len(alpha)
