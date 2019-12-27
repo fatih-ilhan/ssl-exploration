@@ -27,7 +27,7 @@ class LabelNetworker(BaseEstimator, ClassifierMixin):
         self.standardize_flag = params['standardize_flag']
 
         self.scaler = preprocessing.StandardScaler()
-        self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
+        self.PCA = decomposition.PCA(whiten=True)
 
         self.estimator = None
         self.best_val_score = 0
@@ -43,11 +43,14 @@ class LabelNetworker(BaseEstimator, ClassifierMixin):
             x = self.scaler.transform(x)
 
         # apply PCA
-        if self.PCA_dim > 0:
+        if config.PCA_VAR_THR < 1:
+            if self.PCA.n_components is None:
+                self.PCA.n_components = x.shape[1]
+                self.PCA.fit(x)
+                n_components = np.where(self.PCA.explained_variance_ratio_.cumsum() > config.PCA_VAR_THR)[0][0]
+                self.PCA = decomposition.PCA(n_components=n_components, whiten=True)
             self.PCA.fit(x)
             x = self.PCA.transform(x)
-
-            print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
 
         cv = GridSearchCV(LabelPropagation(),
                           self.model_params,
@@ -67,7 +70,7 @@ class LabelNetworker(BaseEstimator, ClassifierMixin):
         if self.standardize_flag:
             x = self.scaler.transform(x)
 
-        if self.PCA_dim:
+        if config.PCA_VAR_THR < 1:
             x = self.PCA.transform(x)
 
         return self.estimator.predict(x)

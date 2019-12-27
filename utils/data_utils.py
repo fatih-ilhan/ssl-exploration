@@ -57,29 +57,6 @@ def prepare_data(dataset_name, overwrite_flag=False):
 def prepare_data_arrhythmia():
     raise NotImplementedError
 
-    # data_path = os.path.join("data_raw", "fully_labeled", "arrhythmia", "arrhythmia.data")
-    # df = pd.read_csv(data_path, header=None)
-    # df = df.replace("?", np.nan)
-    # df = df.astype(float)
-    #
-    # test_mask = np.random.rand(len(df)) < config.TEST_RATIO
-    # train_df = df[~test_mask]
-    # test_df = df[test_mask]
-    #
-    # # Impute missing values
-    # imp = IterativeImputer(max_iter=10, random_state=0)
-    # imp.fit(train_df)
-    #
-    # train_np = imp.transform(train_df)
-    # test_np = imp.transform(test_df)
-    #
-    # x_train = train_np[:, :-1]
-    # y_train = (train_np[:, -1] - 1).astype(int)
-    # x_test = test_np[:, :-1]
-    # y_test = (test_np[:, -1] - 1).astype(int)
-    #
-    # return x_train, y_train, x_test, y_test
-
 
 def prepare_data_cardio():
     data_path = os.path.join("data_raw", "partially_labeled", "cardiotocography", "CTG.xls")

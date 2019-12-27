@@ -1,5 +1,6 @@
 TEST_RATIO = 0.3
 N_JOBS = 4
+PCA_VAR_THR = 0.95
 
 
 class Config:
@@ -8,7 +9,10 @@ class Config:
     """
     def __init__(self):
         self.experiment_params = {"evaluation_metric": ["balanced_accuracy"]}
-        self.pca_params = {}
+        self.simulation_params = {"method": "class",
+                                  "random_p": 0.5,
+                                  "class_p": [0.1, 0.1],
+                                  "feature_p": []}
         self.self_trainer_params = {"model_name": "svm",
                                     "model_params": {"mlp": {"hidden_layer_sizes": [(20,), (10, 4,)],
                                                              "activation": ["relu", "logistic", ],
@@ -28,7 +32,6 @@ class Config:
                                     "num_splits": 2,
                                     "metric_key": "balanced_accuracy",
                                     "confidence_threshold": 0.5,
-                                    "PCA_dim": 0,
                                     "max_iter": 10,
                                     "standardize_flag": True
                                     }
@@ -37,7 +40,6 @@ class Config:
                                   "num_splits": 5}
         self.s3vm_params = {}
         self.gmm_params = {"max_steps": 1000,
-                           "PCA_dim": 5,  # 0 to disable
                            "stopping_epsilon": 1e-8,
                            "standardize_flag": True}
         self.label_networker_params = {"model_name": "spread",
@@ -51,5 +53,4 @@ class Config:
                                                                    "n_neighbors": [2, 4, 8, 16, ]}},
                                        "num_splits": 4,
                                        "metric_key": "balanced_accuracy",
-                                       "PCA_dim": 30,
                                        "standardize_flag": True}

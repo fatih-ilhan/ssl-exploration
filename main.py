@@ -9,7 +9,8 @@ from models.self_trainer import SelfTrainer
 from models.s3vm import S3VM
 from models.label_networker import LabelNetworker
 from utils.data_utils import prepare_data
-from utils.evaluate_utils import evaluate, merge_results
+from utils.evaluation_utils import evaluate, merge_results
+from utils.simulation_utils import simulate_missing_labels
 
 
 if __name__ == '__main__':
@@ -37,25 +38,30 @@ if __name__ == '__main__':
 
         model_path = "output", "models", args.model_name + "_" + dataset_name + ".pkl"
 
-        if ~args.load:
-            model_params = params_dispatcher[args.model_name]
-            model = model_dispatcher[args.model_name](model_params)
-        else:
-            with open(args.model_path, "rb") as f:
-                model = pickle.load(f)
-
         train_results_list = []
         val_results_list = []
         test_results_list = []
 
         data_dict = prepare_data(dataset_name)
-        x_train, y_train, x_test, y_test = data_dict.values()
 
         for rep in range(args.num_repeat):
             print("********************")
             print(f"Dataset: {dataset_name}, Repeat index: {rep+1}")
+
+            data_split = data_dict.values()
+            x_train, y_train, x_test, y_test = data_split
+            x_train_simulated, y_train_simulated = \
+                simulate_missing_labels(x_train, y_train, config_obj.simulation_params)
+
+            if ~args.load:
+                model_params = params_dispatcher[args.model_name]
+                model = model_dispatcher[args.model_name](model_params)
+            else:
+                with open(args.model_path, "rb") as f:
+                    model = pickle.load(f)
+
             if "train" in args.mode:
-                model.fit(x_train, y_train)
+                model.fit(x_train_simulated, y_train_simulated)
                 train_preds = model.predict(x_train[y_train != -1])
                 train_results = evaluate(train_preds, y_train[y_train != -1], config_obj.experiment_params["evaluation_metric"])
                 train_results_list.append(train_results)
