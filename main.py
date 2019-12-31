@@ -6,6 +6,7 @@ import os
 from config import Config
 from models.gmm import GMM
 from models.self_trainer import SelfTrainer
+from models.co_trainer import CoTrainer
 from models.s3vm import S3VM
 from models.label_networker import LabelNetworker
 from utils.data_utils import prepare_data
@@ -26,10 +27,12 @@ if __name__ == '__main__':
 
     config_obj = Config()
     model_dispatcher = {"self_trainer": SelfTrainer,
+                        "co_trainer": CoTrainer,
                         "s3vm": S3VM,
                         "gmm": GMM,
                         "label_networker": LabelNetworker}
     params_dispatcher = {"self_trainer": config_obj.self_trainer_params,
+                         "co_trainer": config_obj.co_trainer_params,
                          "s3vm": config_obj.s3vm_params,
                          "gmm": config_obj.gmm_params,
                          "label_networker": config_obj.label_networker_params}

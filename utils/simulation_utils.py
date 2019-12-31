@@ -28,12 +28,10 @@ def simulate_missing_labels_random(x, y, random_p):
 def simulate_missing_labels_class(x, y, class_p):
     num_classes = y.max() + 1
     for i in range(num_classes):
-        try:
-            num_data = (y == i).sum()
-            idxs_to_miss = random.sample(np.where(y == i)[0].tolist(), int(num_data * class_p[i]))
-            y[idxs_to_miss] = -1
-        except:
-            pass
+        p = 1 - np.random.uniform(class_p[0], class_p[1])
+        num_data = (y == i).sum()
+        idxs_to_miss = random.sample(np.where(y == i)[0].tolist(), int(num_data * p))
+        y[idxs_to_miss] = -1
     return x, y
 
 

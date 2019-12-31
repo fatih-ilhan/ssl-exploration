@@ -18,7 +18,6 @@ if not sys.warnoptions:
     os.environ["PYTHONWARNINGS"] = "ignore"
 
 
-# todo - add 'don't choose the best val option' for iteration loop
 class SelfTrainer(BaseEstimator, ClassifierMixin):
     model_dispatcher = {"mlp": MLPClassifier, "svm": LinearSVC, "tree": DecisionTreeClassifier,
                         "forest": RandomForestClassifier}
