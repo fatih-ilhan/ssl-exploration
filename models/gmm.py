@@ -1,12 +1,13 @@
 from sklearn.base import BaseEstimator, ClassifierMixin
 
+import math
 import numpy as np
 from sklearn import preprocessing
 from sklearn import decomposition
 from sklearn import metrics
 from sklearn.utils import shuffle
 
-import math
+import config
 
 
 class GMM(BaseEstimator, ClassifierMixin):
@@ -21,7 +22,7 @@ class GMM(BaseEstimator, ClassifierMixin):
         self.standardize_flag = params['standardize_flag']
 
         self.scaler = preprocessing.StandardScaler()
-        self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
+        self.PCA = decomposition.PCA(whiten=True)
 
         self.folds = 4
 
@@ -44,11 +45,14 @@ class GMM(BaseEstimator, ClassifierMixin):
             x_std = x.copy()
 
         # apply PCA
-        if self.PCA_dim > 0:
-            self.PCA.fit(x_std)
-            x_std = self.PCA.transform(x_std)
-
-            print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
+        if config.PCA_VAR_THR < 1:
+            if self.PCA.n_components is None:
+                self.PCA.n_components = x.shape[1]
+                self.PCA.fit(x)
+                n_components = np.where(self.PCA.explained_variance_ratio_.cumsum() > config.PCA_VAR_THR)[0][0]
+                self.PCA = decomposition.PCA(n_components=n_components, whiten=True)
+            self.PCA.fit(x)
+            x = self.PCA.transform(x)
 
         y_hat = np.zeros(y.shape)
         is_labeled = [(y[i] != -1) for i in range(num_samples)]  # -1 means no label is given
@@ -113,7 +117,7 @@ class GMM(BaseEstimator, ClassifierMixin):
         else:
             x_std = x.copy()
 
-        if self.PCA_dim > 0:
+        if config.PCA_VAR_THR < 1:
             x_std = self.PCA.transform(x_std)
 
         N = x_std.shape[0]

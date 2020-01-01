@@ -18,7 +18,6 @@ if not sys.warnoptions:
     os.environ["PYTHONWARNINGS"] = "ignore"
 
 
-# todo - add 'don't choose the best val option' for iteration loop
 class SelfTrainer(BaseEstimator, ClassifierMixin):
     model_dispatcher = {"mlp": MLPClassifier, "svm": LinearSVC, "tree": DecisionTreeClassifier,
                         "forest": RandomForestClassifier}
@@ -33,11 +32,10 @@ class SelfTrainer(BaseEstimator, ClassifierMixin):
         self.metric_key = params["metric_key"]
         self.confidence_threshold = params["confidence_threshold"]
         self.max_iter = params["max_iter"]
-        self.PCA_dim = params['PCA_dim']
         self.standardize_flag = params['standardize_flag']
 
         self.scaler = preprocessing.StandardScaler()
-        self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
+        self.PCA = decomposition.PCA(whiten=True)
 
         self.estimator = None
         self.best_val_score = 0
@@ -53,11 +51,14 @@ class SelfTrainer(BaseEstimator, ClassifierMixin):
             x = self.scaler.transform(x)
 
         # apply PCA
-        if self.PCA_dim > 0:
+        if config.PCA_VAR_THR < 1:
+            if self.PCA.n_components is None:
+                self.PCA.n_components = x.shape[1]
+                self.PCA.fit(x)
+                n_components = np.where(self.PCA.explained_variance_ratio_.cumsum() > config.PCA_VAR_THR)[0][0]
+                self.PCA = decomposition.PCA(n_components=n_components, whiten=True)
             self.PCA.fit(x)
             x = self.PCA.transform(x)
-
-            print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
 
         is_unlabeled = y == -1
 
@@ -107,7 +108,7 @@ class SelfTrainer(BaseEstimator, ClassifierMixin):
         if self.standardize_flag:
             x = self.scaler.transform(x)
 
-        if self.PCA_dim:
+        if config.PCA_VAR_THR < 1:
             x = self.PCA.transform(x)
 
         return self.estimator.predict(x)
