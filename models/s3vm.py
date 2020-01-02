@@ -31,14 +31,19 @@ class S3VM(BaseEstimator, ClassifierMixin):
         self.PCA_dim = params['PCA_dim']
         self.standardize_flag = params['standardize_flag']
         # C paremeter for SVM, 0.01 is a good choice
-        self.C = params['C']
+        self.Cs = params['model_params']['C']
+        self.kernels = params['model_params']['kernel']
+        self.sigmas = params['model_params']['sigma']
         #Kernel for S3VM either "Linear" or "RBF"
-        self.kernel_type = params['kernel']
+
+        self.C = 0
+        self.kernel = ''
+        self.sigma = 0
 
         self.scaler = preprocessing.StandardScaler()
         self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
 
-        self.folds = 4
+        self.trainPercent = 0.5     #(1 - validation)
 
         self.best_val_score = 0
 
@@ -62,6 +67,51 @@ class S3VM(BaseEstimator, ClassifierMixin):
 
             print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
 
+        val_idx = math.floor(x.shape[0] * self.trainPercent)
+
+        x_train = x_std[0 : val_idx]
+        y_train = y[0 : val_idx]
+
+        x_val = x_std[val_idx : ]
+        y_val = y[val_idx : ]
+
+        for C in self.Cs:
+            for kernel in self.kernels:
+                for sigma in self.sigmas:
+                    self.fitParams(x_train, y_train, C, kernel, sigma)
+                    y_hat = self.getClasses(x_val)
+
+                    y_valL = y_val[~(y_val==-1)]
+                    y_hatL = y_hat[~(y_val==-1)]
+
+                    val_score = metrics.balanced_accuracy_score(y_valL, y_hatL)
+
+                    if(val_score > self.best_val_score):
+                        self.best_val_score = val_score
+                        self.C = C
+                        self.kernel = kernel
+                        self.sigma = sigma
+        
+        self.fitParams(x_std, y, self.C, self.kernel, self.sigma)
+
+        #self.s3vm = QN_S3VM(xL, yL, xU, random_generator=random.Random() , lam=0.00001, kernel_type='Linear', sigma=0.5)
+        #self.s3vm.train()
+
+    def predict(self, x):
+
+        if self.standardize_flag:
+            x_std = self.scaler.transform(x)
+        else:
+            x_std = x.copy()
+
+        if self.PCA_dim > 0:
+            x_std = self.PCA.transform(x_std)
+
+        y = self.getClasses(x_std)
+
+        return y
+
+    def fitParams(self, x_std, y, C, kernel, sigma):
         xL = (x_std[~(y==-1)]).tolist()
         xU = (x_std[(y==-1)]).tolist()
         #print(xU.shape)
@@ -86,29 +136,9 @@ class S3VM(BaseEstimator, ClassifierMixin):
         self.ovasvms = []
 
         for j in range(self.noClasses):
-            clf = QN_S3VM(xL, (yLs[j]).tolist(), xU, random_generator=random.Random(), lam=self.C, kernel_type=self.kernel_type, sigma=1)
+            clf = QN_S3VM(xL, (yLs[j]).tolist(), xU, random_generator=random.Random(), lam=C, kernel_type=kernel, sigma=sigma)
             clf.train()
             self.ovasvms.append(clf)
-
-        #self.s3vm = QN_S3VM(xL, yL, xU, random_generator=random.Random() , lam=0.00001, kernel_type='Linear', sigma=0.5)
-        #self.s3vm.train()
-
-        yhat = self.getClasses(xL)
-        self.best_val_score = metrics.balanced_accuracy_score(yL, yhat)
-
-    def predict(self, x):
-
-        if self.standardize_flag:
-            x_std = self.scaler.transform(x)
-        else:
-            x_std = x.copy()
-
-        if self.PCA_dim > 0:
-            x_std = self.PCA.transform(x_std)
-
-        y = self.getClasses(x_std)
-
-        return y
 
     def getClasses(self, xstd):
 
