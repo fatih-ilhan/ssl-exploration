@@ -45,13 +45,13 @@ if __name__ == '__main__':
         val_results_list = []
         test_results_list = []
 
-        data_dict = prepare_data(dataset_name)
-
         for rep in range(args.num_repeat):
 
             try:
                 print("********************")
                 print(f"Dataset: {dataset_name}, Repeat index: {rep+1}")
+
+                data_dict = prepare_data(dataset_name, overwrite_flag=True)
 
                 data_split = data_dict.values()
                 x_train, y_train, x_test, y_test = data_split
