@@ -9,7 +9,7 @@ class Config:
     """
     def __init__(self):
         self.experiment_params = {"evaluation_metric": ["balanced_accuracy"]}
-        self.simulation_params = {"method": "class",
+        self.simulation_params = {"method": "none",
                                   "random_p": 0.5,
                                   "class_p": [0.2, 0.8],  # min max miss probabilities
                                   "feature_p": []}
@@ -20,7 +20,7 @@ class Config:
                                                              "max_iter": [25, 100, 250, 500, ],
                                                              },
                                                      "svm": {"C": [10, 1, 1e-1, ],
-                                                             "max_iter": [10, 100, 1000, 3000, ]},
+                                                             "max_iter": [10, 100, 300, 1000, ]},
                                                      "tree": {"max_depth": [None, 5, 20, ],
                                                               "min_samples_split": [2, 4, 8, ],
                                                               "min_samples_leaf": [1, 3, 10], },
@@ -29,7 +29,7 @@ class Config:
                                                                 "n_jobs": [4, ],
                                                                 "n_estimators": [30, 100, ]},
                                                      },
-                                    "num_splits": 2,
+                                    "num_splits": 4,
                                     "metric_key": "balanced_accuracy",
                                     "confidence_threshold": 0.5,
                                     "max_iter": 10,
