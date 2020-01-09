@@ -87,7 +87,7 @@ class SelfTrainer(BaseEstimator, ClassifierMixin):
                 y[new_labeled_indices] = preds[is_labeled_from_unlabeled]
                 is_unlabeled[new_labeled_indices] = 0
 
-            val_score = cv.cv_results_["mean_test_score"].max()
+            val_score = cv.cv_results_["mean_test_score"].max() * 100
             if val_score > best_val_score:
                 best_val_score = val_score
                 best_estimator = cv.best_estimator_

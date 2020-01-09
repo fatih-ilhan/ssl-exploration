@@ -10,13 +10,13 @@ def evaluate(pred, label, metric_list):
             result = skmetrics.confusion_matrix(label[label != -1], pred[label != -1])
             result_dict[metric] = np.array(result)
         elif metric == "accuracy":
-            result = skmetrics.accuracy_score(label[label != -1], pred[label != -1])
+            result = skmetrics.accuracy_score(label[label != -1], pred[label != -1]) * 100
             result_dict[metric] = result
         elif metric == "balanced_accuracy":
-            result = skmetrics.balanced_accuracy_score(label[label != -1], pred[label != -1])
+            result = skmetrics.balanced_accuracy_score(label[label != -1], pred[label != -1]) * 100
             result_dict[metric] = result
         elif metric == "balanced_f1":
-            result = skmetrics.f1_score(label[label != -1], pred[label != -1], average="weighted")
+            result = skmetrics.f1_score(label[label != -1], pred[label != -1], average="weighted") * 100
             result_dict[metric] = result
 
     return result_dict
