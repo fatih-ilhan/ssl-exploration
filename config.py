@@ -10,8 +10,8 @@ class Config:
     def __init__(self):
         self.experiment_params = {"evaluation_metric": ["balanced_accuracy"]}
         self.simulation_params = {"method": "none",
-                                  "random_p": 0.5,
-                                  "class_p": [0.2, 0.8],  # min max miss probabilities
+                                  "random_p": 0.5,  # labeled probability
+                                  "class_p": [0.2, 0.8],  # min max labeled probabilities
                                   "feature_p": []}
         self.self_trainer_params = {"model_name": "svm",
                                     "model_params": {"mlp": {"hidden_layer_sizes": [(20,), (10, 4,)],
