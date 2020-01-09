@@ -70,7 +70,7 @@ class CoTrainer(BaseEstimator, ClassifierMixin):
         is_unlabeled_list = []
         feature_idx_list = []
 
-        num_feature_per_split = int(np.ceil(x.shape[-1] / self.num_feature_splits))
+        num_feature_per_split = int(np.ceil(x.shape[-1] * (1 / self.num_feature_splits + 0.5)))
         for i in range(self.num_feature_splits):
             feature_list = np.random.choice(np.arange(x.shape[-1]), num_feature_per_split)
             feature_idx_list.append(feature_list)
@@ -106,6 +106,8 @@ class CoTrainer(BaseEstimator, ClassifierMixin):
                     new_labeled_indices = np.where(is_unlabeled)[0][is_labeled_from_unlabeled]
 
                     for k in range(self.num_feature_splits):
+                        if k == j:
+                            continue
                         y_list[k][new_labeled_indices] = preds[is_labeled_from_unlabeled]
                         is_unlabeled_list[k][new_labeled_indices] = 0
 
