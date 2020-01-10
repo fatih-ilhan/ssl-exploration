@@ -1,6 +1,6 @@
 TEST_RATIO = 0.3
 N_JOBS = 4
-PCA_VAR_THR = 0.95  # 1 to disable
+PCA_VAR_THR = 1  # 1 to disable
 
 
 class Config:
@@ -9,10 +9,10 @@ class Config:
     """
     def __init__(self):
         self.experiment_params = {"evaluation_metric": ["balanced_accuracy"]}
-        self.simulation_params = {"method": "feature",
-                                  "random_p": 0.5,  # labeled probability
+        self.simulation_params = {"method": "random",
+                                  "random_p": 0.1,  # labeled probability
                                   "class_p": [0.2, 0.8],  # min max labeled probabilities
-                                  "feature_p": 0.8}
+                                  "feature_p": 0.3}
         self.self_trainer_params = {"model_name": "svm",
                                     "model_params": {"mlp": {"hidden_layer_sizes": [(20,), (10, 4,)],
                                                              "activation": ["relu", "logistic", ],
@@ -58,10 +58,11 @@ class Config:
                                   "max_iter": 10,
                                   "standardize_flag": True
                                   }
-        self.s3vm_params = {}
+        self.s3vm_params = {"standardize_flag": True, "model_params" : {"C": [0.01,
+         0.1, 1.0], "kernel" : ["RBF", "Linear"], "sigma" : [0.5, 1]}, "PCA_dim" : 3}
         self.gmm_params = {"max_steps": 1000,
                            "stopping_epsilon": 1e-8,
-                           "standardize_flag": True}
+                           "standardize_flag": True, "PCA_dim" : 3}
         self.label_networker_params = {"model_name": "spread",
                                        "model_params": {"prop": {"max_iter": [10, 100, 1000, ],
                                                                  "n_jobs": [4, ],

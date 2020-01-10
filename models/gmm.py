@@ -22,7 +22,7 @@ class GMM(BaseEstimator, ClassifierMixin):
         self.standardize_flag = params['standardize_flag']
 
         self.scaler = preprocessing.StandardScaler()
-        self.PCA = decomposition.PCA(whiten=True)
+        self.PCA = decomposition.PCA(n_components=self.PCA_dim, whiten=True)
 
         self.folds = 4
 
@@ -47,12 +47,18 @@ class GMM(BaseEstimator, ClassifierMixin):
         # apply PCA
         if config.PCA_VAR_THR < 1:
             if self.PCA.n_components is None:
-                self.PCA.n_components = x.shape[1]
-                self.PCA.fit(x)
+                self.PCA.n_components = min(x_std.shape[0], x_std.shape[1])
+                self.PCA.fit(x_std)
                 n_components = np.where(self.PCA.explained_variance_ratio_.cumsum() > config.PCA_VAR_THR)[0][0]
                 self.PCA = decomposition.PCA(n_components=n_components, whiten=True)
-            self.PCA.fit(x)
-            x = self.PCA.transform(x)
+                num_features = n_components
+                self.PCA_dim = n_components
+            self.PCA.fit(x_std)
+            
+            x_std = self.PCA.transform(x_std)
+
+        else:
+            x_std = self.PCA.fit_transform(x_std)
 
         y_hat = np.zeros(y.shape)
         is_labeled = [(y[i] != -1) for i in range(num_samples)]  # -1 means no label is given
@@ -117,8 +123,8 @@ class GMM(BaseEstimator, ClassifierMixin):
         else:
             x_std = x.copy()
 
-        if config.PCA_VAR_THR < 1:
-            x_std = self.PCA.transform(x_std)
+        #if config.PCA_VAR_THR < 1:
+        x_std = self.PCA.transform(x_std)
 
         N = x_std.shape[0]
 
@@ -146,7 +152,7 @@ class GMM(BaseEstimator, ClassifierMixin):
             mu[j] = np.mean(x[y==j], axis=0).reshape(num_features,1)
             sigma[j] = np.cov(x[y==j].T)
 
-        sigmai = [np.linalg.inv(sigma[j]) for j in range(num_mixture_components)]
+        sigmai = [np.linalg.pinv(sigma[j]) for j in range(num_mixture_components)]
 
         return alpha, mu, sigma, sigmai
 
