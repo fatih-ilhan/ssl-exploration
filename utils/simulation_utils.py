@@ -69,7 +69,7 @@ def simulate_missing_labels_feature(x, y, feature_p):
 
     y[idx_to_miss] = -1
 
-    return x, y
+    return x_, y
 
 
 def simulate_missing_labels_pass(x, y):
