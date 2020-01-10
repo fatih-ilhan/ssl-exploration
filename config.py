@@ -1,6 +1,6 @@
 TEST_RATIO = 0.3
 N_JOBS = 4
-PCA_VAR_THR = 1  # 1 to disable
+PCA_VAR_THR = 0.95  # 1 to disable
 
 
 class Config:
@@ -9,10 +9,10 @@ class Config:
     """
     def __init__(self):
         self.experiment_params = {"evaluation_metric": ["balanced_accuracy"]}
-        self.simulation_params = {"method": "none",
+        self.simulation_params = {"method": "feature",
                                   "random_p": 0.5,  # labeled probability
                                   "class_p": [0.2, 0.8],  # min max labeled probabilities
-                                  "feature_p": []}
+                                  "feature_p": 0.8}
         self.self_trainer_params = {"model_name": "svm",
                                     "model_params": {"mlp": {"hidden_layer_sizes": [(20,), (10, 4,)],
                                                              "activation": ["relu", "logistic", ],
