@@ -35,6 +35,9 @@ class GMM(BaseEstimator, ClassifierMixin):
         num_samples = x.shape[0]
         num_features = self.PCA_dim
 
+        print(x.shape)
+        print(y.shape)
+
         x,y = shuffle(x, y)
 
         # standardize input
@@ -53,12 +56,15 @@ class GMM(BaseEstimator, ClassifierMixin):
                 self.PCA = decomposition.PCA(n_components=n_components, whiten=True)
                 num_features = n_components
                 self.PCA_dim = n_components
+                #print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
             self.PCA.fit(x_std)
             
             x_std = self.PCA.transform(x_std)
+            print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
 
         else:
             x_std = self.PCA.fit_transform(x_std)
+            print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
 
         y_hat = np.zeros(y.shape)
         is_labeled = [(y[i] != -1) for i in range(num_samples)]  # -1 means no label is given

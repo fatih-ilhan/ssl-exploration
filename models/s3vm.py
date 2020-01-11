@@ -36,6 +36,8 @@ class S3VM(BaseEstimator, ClassifierMixin):
         self.sigmas = params['model_params']['sigma']
         #Kernel for S3VM either "Linear" or "RBF"
 
+        self.folds = 4
+
         self.C = 0
         self.kernel = ''
         self.sigma = 0
@@ -67,31 +69,46 @@ class S3VM(BaseEstimator, ClassifierMixin):
 
             print("PCA explained variance_ratio:", self.PCA.explained_variance_ratio_.cumsum())
 
-        val_idx = math.floor(x.shape[0] * self.trainPercent)
+        fold_size = math.floor(x.shape[0] / self.folds)
+        masks = np.zeros((self.folds, x_std.shape[0]), dtype=bool)
+        for j in range(self.folds):
+            masks[j, j * fold_size : (j+1) * fold_size - 1] = True
 
-        x_train = x_std[0 : val_idx]
-        y_train = y[0 : val_idx]
+        val_scores = [0 for j in range(self.folds)]
 
-        x_val = x_std[val_idx : ]
-        y_val = y[val_idx : ]
+        x_train = [x_std[~masks[j]] for j in range(self.folds)]
+        y_train = [y[~masks[j]] for j in range(self.folds)]
+
+        x_val = [x_std[masks[j]] for j in range(self.folds)]
+        y_val = [y[masks[j]] for j in range(self.folds)]
+
+        validation_accuracies = [0 for j in range(self.folds)]
 
         for C in self.Cs:
             for kernel in self.kernels:
                 for sigma in self.sigmas:
-                    self.fitParams(x_train, y_train, C, kernel, sigma)
-                    y_hat = self.getClasses(x_val)
+                    for j in range(self.folds):
+                            
+                        self.fitParams(x_train[j], y_train[j], C, kernel, sigma)
+                        y_hat = self.getClasses(x_val[j])
 
-                    y_valL = y_val[~(y_val==-1)]
-                    y_hatL = y_hat[~(y_val==-1)]
+                        y_valL = y_val[j][~(y_val[j]==-1)]
+                        y_hatL = y_hat[~(y_val[j]==-1)]
 
-                    val_score = metrics.balanced_accuracy_score(y_valL, y_hatL)
+                        val_score = metrics.balanced_accuracy_score(y_valL, y_hatL)
 
-                    if(val_score > self.best_val_score):
-                        self.best_val_score = val_score
+                        validation_accuracies[j] = val_score
+                    
+                    avg_val = np.sum(validation_accuracies) / self.folds
+
+                    if(avg_val > self.best_val_score):
+                        self.best_val_score = avg_val
                         self.C = C
                         self.kernel = kernel
                         self.sigma = sigma
         
+        print('\nC: ' + str(self.C) + ', kernel: ' + self.kernel + ', sigma: ' + str(self.sigma))
+
         self.fitParams(x_std, y, self.C, self.kernel, self.sigma)
 
         #self.s3vm = QN_S3VM(xL, yL, xU, random_generator=random.Random() , lam=0.00001, kernel_type='Linear', sigma=0.5)
@@ -112,6 +129,7 @@ class S3VM(BaseEstimator, ClassifierMixin):
         return y
 
     def fitParams(self, x_std, y, C, kernel, sigma):
+        print('fit', end=' ')
         xL = (x_std[~(y==-1)]).tolist()
         xU = (x_std[(y==-1)]).tolist()
         #print(xU.shape)
